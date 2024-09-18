@@ -124,8 +124,24 @@ static UIApplication *_YYSharedApplication() {
     BOOL retry = NO;
     BOOL stmtFinalized = NO;
     
-    if (_dbStmtCache) CFRelease(_dbStmtCache);
-    _dbStmtCache = NULL;
+    // 修改xcode16运行ios18 调试项目sqlite3_finalize(stmt)崩溃问题修改
+    if (@available(iOS 18, *)) {
+        if (_dbStmtCache) {
+            CFIndex size = CFDictionaryGetCount(_dbStmtCache);
+            CFTypeRef *valuesRef = (CFTypeRef *)malloc(size * sizeof(CFTypeRef));
+            CFDictionaryGetKeysAndValues(_dbStmtCache, NULL, (const void **)valuesRef);
+            const sqlite3_stmt **stmts = (const sqlite3_stmt **)valuesRef;
+            for (CFIndex i = 0; i < size; i ++) {
+                sqlite3_stmt *stmt = stmts[i];
+                sqlite3_finalize(stmt);
+            }
+            free(valuesRef);
+            CFRelease(_dbStmtCache);
+        }
+    } else {
+        if (_dbStmtCache) CFRelease(_dbStmtCache);
+        _dbStmtCache = NULL;
+    }
     
     do {
         retry = NO;
